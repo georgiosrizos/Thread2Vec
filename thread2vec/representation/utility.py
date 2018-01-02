@@ -9,21 +9,19 @@ import scipy.sparse as spsp
 from thread2vec.common import get_package_path
 
 
-def get_data(dataset):
+def get_data(dataset, scale):
     if dataset == "youtube":
-        thread_data_filepath = get_package_path() + "/data_folder/uniform_data/youtube/new_thread_data.txt"
-        item_to_userset_filepath = get_package_path() + "/data_folder/uniform_data/youtube/item_to_userset.txt"
-        anonymize_user_filepath = get_package_path() + "/data_folder/uniform_data/youtube/anonymize_user.txt"
-        popularity_filepath = get_package_path() + "/data_folder/uniform_data/youtube/youtube_popularity.txt"
-        anonymous_coward_name = "REVEAL_FP7_anonymous_youtube_user"
+        item_to_userset_filepath = get_package_path() + "/data_folder/anonymized_data/youtube/item_to_userset_" + scale + ".txt"
+        anonymize_user_filepath = get_package_path() + "/data_folder/anonymized_data/youtube/anonymize_user_" + scale + ".txt"
+        popularity_filepath = get_package_path() + "/data_folder/anonymized_data/youtube/item_to_popularity.txt"
+        anonymous_coward_name = repr(0)
         top_users = 200001
         total_number_of_items = 516995
     elif dataset == "reddit":
-        thread_data_filepath = get_package_path() + "/data_folder/uniform_data/reddit/thread_data.txt"
-        item_to_userset_filepath = get_package_path() + "/data_folder/uniform_data/reddit/item_to_userset_day.txt"
-        anonymize_user_filepath = get_package_path() + "/data_folder/uniform_data/reddit/anonymize_user.txt"
-        popularity_filepath = get_package_path() + "/data_folder/uniform_data/reddit/reddit_popularity.txt"
-        anonymous_coward_name = "[deleted]"
+        item_to_userset_filepath = get_package_path() + "/data_folder/anonymized_data/reddit/item_to_userset_" + scale + ".txt"
+        anonymize_user_filepath = get_package_path() + "/data_folder/anonymized_data/reddit/anonymize_user_" + scale + ".txt"
+        popularity_filepath = get_package_path() + "/data_folder/anonymized_data/reddit/item_to_popularity.txt"
+        anonymous_coward_name = repr(0)
         top_users = 20000
         total_number_of_items = 35844
     else:
@@ -276,70 +274,3 @@ def read_indices(dataset):
         test = indices[train_size + val_size:]
 
     return train, val, test
-
-
-def clean_thread_data(dataset):
-    if dataset == "youtube":
-        thread_data_filepath = get_package_path() + "/data_folder/uniform_data/youtube/thread_data.txt"
-        new_thread_data_filepath = get_package_path() + "/data_folder/uniform_data/youtube/new_thread_data.txt"
-        # item_to_userset_filepath = get_package_path() + "/data_folder/uniform_data/youtube/item_to_userset.txt"
-        # anonymize_user_filepath = get_package_path() + "/data_folder/uniform_data/youtube/anonymize_user.txt"
-        # popularity_filepath = get_package_path() + "/data_folder/uniform_data/youtube/youtube_popularity.txt"
-        # anonymous_coward_name = "REVEAL_FP7_anonymous_youtube_user"
-        # top_users = 200001
-        # total_number_of_items = 516995
-    elif dataset == "reddit":
-        thread_data_filepath = get_package_path() + "/data_folder/uniform_data/reddit/thread_data.txt"
-        new_thread_data_filepath = get_package_path() + "/data_folder/uniform_data/reddit/new_thread_data.txt"
-        # item_to_userset_filepath = get_package_path() + "/data_folder/uniform_data/reddit/item_to_userset_day.txt"
-        # anonymize_user_filepath = get_package_path() + "/data_folder/uniform_data/reddit/anonymize_user.txt"
-        # popularity_filepath = get_package_path() + "/data_folder/uniform_data/reddit/reddit_popularity.txt"
-        # anonymous_coward_name = "[deleted]"
-        # top_users = 20000
-        # total_number_of_items = 35844
-    else:
-        raise ValueError("Invalid dataset.")
-
-    data = get_data(dataset=dataset)
-    valid_users = set(list(data["true_user_id_to_user_id"].keys()))
-
-    item_id_set = set(list(data["item_indices_sorted"]))
-
-    with open(thread_data_filepath, "r") as i_fp:
-        with open(new_thread_data_filepath, "w") as o_fp:
-            for file_row in i_fp:
-                item = json.loads(file_row.strip())
-
-                item_id = int(item["item_id"])
-
-                if item_id in item_id_set:
-
-                    valid_comments = list()
-
-                    comment_to_user = list()
-                    comment_to_commentlist = list()
-                    comment_to_timestamp = list()
-
-                    i_to_i = dict()
-                    ii = 0
-                    for i in range(len(item["comment_to_user"])):
-                        if int(item["comment_to_user"][i]) in valid_users:
-                            valid_comments.append(i)
-                            i_to_i[i] = ii
-                            ii += 0
-                    valid_comments = set(valid_comments)
-                    for i in range(len(item["comment_to_user"])):
-                        if i in valid_comments:
-                            comment_to_user.append(item["comment_to_user"][i])
-                            comment_to_commentlist.append(item["comment_to_commentlist"][i])
-                            for j, reply in enumerate(comment_to_commentlist[-1]):
-                                comment_to_commentlist[-1][j] = i_to_i[j]
-
-                            comment_to_timestamp.append(item["comment_to_timestamp"][i])
-
-                    item["comment_to_user"] = comment_to_user
-                    item["comment_to_commentlist"] = comment_to_commentlist
-                    item["comment_to_timestamp"] = comment_to_timestamp
-
-                    json.dump(item, o_fp)
-                    o_fp.write("\n")

@@ -20,8 +20,8 @@ def mean_versus_vlad_aggregation(dataset):
     data = get_data(dataset)
 
     y = data["popularity_matrix"]
-    y_train = y[train, 2]
-    y_test = y[test, 2]
+    y_train = y[train, 1]
+    y_test = y[test, 1]
 
     ####################################################################################################################
     # Mean
@@ -191,7 +191,7 @@ def mean_versus_vlad_aggregation(dataset):
         print(loss)
         results_list.append(loss)
 
-    with open(get_package_path() + "/data_folder/uniform_data/" + dataset + "/aggregation_benchmark.txt", "w") as fp:
+    with open(get_package_path() + "/data_folder/uniform_data/" + dataset + "/aggregation_benchmark_user.txt", "w") as fp:
         for name, loss in zip(method_names, results_list):
             fp.write(name + "\t" + repr(loss) + "\n")
 
@@ -224,7 +224,7 @@ def handcrafted_features_versus_aggregation_comparison(dataset, vlad_clusters):
                            filtered_item_to_user_matrix=data["filtered_item_to_user_matrix"],
                            user_id_set=set(list(data["true_user_id_to_user_id"].values())),
                            do_power_norm=True,
-                           do_l2_norm=False)
+                           do_l2_norm=True)
 
     for star in handcrafted_parameters:
         handcrafted_features = np.load(get_package_path() + "/data_folder/uniform_data/" + dataset + "/features_" + star + ".npy")
@@ -269,21 +269,11 @@ def handcrafted_features_versus_aggregation_comparison(dataset, vlad_clusters):
     print(results_list[indices_sorted])
 
 
-# def best_combo():
-#     ####################################################################################################################
-#     # YouTube
-#     ####################################################################################################################
-#
-#     ####################################################################################################################
-#     # Reddit
-#     ####################################################################################################################
-
-
 if __name__ == "__main__":
-    # mean_versus_vlad_aggregation("reddit")
-    #
-    # mean_versus_vlad_aggregation("youtube")
+    mean_versus_vlad_aggregation("reddit")
+
+    mean_versus_vlad_aggregation("youtube")
 
     handcrafted_features_versus_aggregation_comparison("reddit", 7)
 
-    # handcrafted_features_versus_aggregation_comparison("youtube", 7)
+    handcrafted_features_versus_aggregation_comparison("youtube", 30)

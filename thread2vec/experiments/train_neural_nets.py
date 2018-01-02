@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     dataset = "reddit"
 
-    data = get_data(dataset)
+    data = get_data(dataset, "week")
     print("Read data.")
 
     async_batch_size = 1000
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     dataset = "youtube"
 
-    data = get_data(dataset)
+    data = get_data(dataset, "week")
     print("Read data.")
 
     async_batch_size = 10000

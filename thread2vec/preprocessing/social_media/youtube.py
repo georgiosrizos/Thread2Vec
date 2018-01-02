@@ -1,5 +1,6 @@
 __author__ = 'Georgios Rizos (georgerizos@iti.gr)'
 
+import tarfile
 import json
 import datetime
 from dateutil import parser as duparser
@@ -11,31 +12,30 @@ from thread2vec.preprocessing.targets import ci_lower_bound
 
 
 def document_generator(file_path):
-    counter = 0
-    with open(file_path, "r") as fp:
-        while True:
-            try:
-                file_row = next(fp)
-            except StopIteration:
-                break
-            except OSError:
-                continue
-            clean_row = file_row.strip().split("\t")
-            if len(clean_row) == 2:
-                document = dict()
-                print(counter)
-                counter += 1
-            elif len(clean_row) == 0:
-                continue
-            try:
-                youtube_document = json.loads(file_row.strip())
-                document["fetch_timestamp"] = youtube_document["fetch_timestamp"]
-                document["post_id"] = youtube_document["initial_post"]["id"]
-                document["initial_post"] = youtube_document["initial_post"]
-                document["comments"] = youtube_document["comments"]
-                yield document
-            except ValueError:
-                continue
+    with tarfile.open(file_path, "r") as tar:
+        for member in tar.getmembers():
+            fp = tar.extractfile(member)
+            while True:
+                try:
+                    file_row = next(fp).decode("utf-8")
+                except StopIteration:
+                    break
+                except OSError:
+                    continue
+                clean_row = file_row.strip().split("\t")
+                if len(clean_row) == 2:
+                    document = dict()
+                elif len(clean_row) == 0:
+                    continue
+                try:
+                    youtube_document = json.loads(file_row.strip())
+                    document["fetch_timestamp"] = youtube_document["fetch_timestamp"]
+                    document["post_id"] = youtube_document["initial_post"]["id"]
+                    document["initial_post"] = youtube_document["initial_post"]
+                    document["comments"] = youtube_document["comments"]
+                    yield document
+                except ValueError:
+                    continue
 
 
 def extract_author_metadata(document):

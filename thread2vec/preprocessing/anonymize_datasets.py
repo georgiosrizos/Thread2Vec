@@ -1,13 +1,15 @@
 __author__ = "Georgios Rizos (georgerizos@iti.gr)"
 
 import os
-import heapq
+import sys
 import json
-import collections
 
 from thread2vec.preprocessing.social_media import youtube as youtube_extract
 from thread2vec.preprocessing.social_media import reddit as reddit_extract
+from thread2vec.preprocessing.social_media import anonymized as anonymized_extract
+from thread2vec.preprocessing.common import safe_comment_generator
 from thread2vec.common import get_package_path
+# from thread2vec.preprocessing.social_media import anonymized as anonymized_extract
 
 
 def anonymize_youtube_dataset(input_folder, output_folder):
@@ -36,16 +38,30 @@ def anonymize_youtube_dataset(input_folder, output_folder):
     ####################################################################################################################
     # Iterate over all videos.
     ####################################################################################################################
-    file_path_list = os.listdir(input_folder)
-    file_path_list = [name[:-4] for name in file_path_list]
+    # file_path_list = os.listdir(input_folder)
+    # file_path_list = [name[:-4] for name in file_path_list]
+    file_path_list = ["december_0_500",
+                      "december_500_50000",
+                      "december_50000_170000",
+                      "november_0_170000",
+                      "october_0_170000",
+                      "september_0_170000"]
 
-    input_file_path_list = [input_folder + "/" + name + ".txt" for name in file_path_list]
+    input_file_path_list = [input_folder + "/" + name + ".txt.tar.gz" for name in file_path_list]
+    output_file_path = output_folder + "/" + "anonymized_data" + ".txt"
 
-    document_counter = 0
-    for file_path, input_file_path in zip(file_path_list, input_file_path_list):
-        with open(output_folder + "/" + file_path + ".txt", "w") as o_fp:
+    # We will store the post ids of the successfully preprocessed data in order to avoid duplicates.
+    post_name_to_id = dict()
+
+    with open(output_file_path, "w") as o_fp:
+        for file_path, input_file_path in zip(file_path_list, input_file_path_list):
             document_gen = youtube_extraction_functions["document_generator"](input_file_path)
             for document in document_gen:
+                if document["post_id"] in post_name_to_id.keys():
+                    continue
+                else:
+                    document_counter = len(post_name_to_id)
+
                 within_discussion_comment_anonymize = dict()
                 safe_document_gen = safe_comment_generator(document,
                                                            youtube_extraction_functions,
@@ -91,11 +107,28 @@ def anonymize_youtube_dataset(input_folder, output_folder):
                                                                                 user_name_set)
                 except KeyError:
                     continue
+
+                post_name_to_id[document["post_id"]] = document_counter
+                print(document_counter)
+
                 new_document["targets"] = targets
 
-                document_counter += 1
                 json.dump(new_document, o_fp)
                 o_fp.write("\n\n")
+
+
+# def split_youtube_dataset(folder):
+#     """
+#     We do this in order to fit it in github.
+#     """
+#     input_file = folder + "/youtube_sep_dec_2014_data.txt"
+#
+#     file_counter = 0
+#     document_counter = 0
+#     fp = open(folder + "/youtube_sep_dec_2014_data_" + repr(file_counter) + ".txt", "w")
+#
+#     for document in anonymized_extract.document_generator(input_file):
+#
 
 
 def anonymize_reddit_dataset(input_folder, output_folder):
@@ -130,7 +163,7 @@ def anonymize_reddit_dataset(input_folder, output_folder):
 
     document_counter = 0
     for file_path, input_file_path in zip(file_path_list, input_file_path_list):
-        with open(output_folder + "/" + file_path + ".txt", "w") as o_fp:
+        with open(output_folder + "/anonymized_data" + ".txt", "w") as o_fp:
             document_gen = reddit_extraction_functions["document_generator"](input_file_path)
             for document in document_gen:
                 within_discussion_comment_anonymize = dict()
@@ -214,80 +247,116 @@ def anonymize_comment(extraction_functions,
     return new_comment
 
 
-def safe_comment_generator(document,
-                           extraction_functions,
-                           within_discussion_comment_anonymize):
-    """
-    We do this in order to correct for nonsensical or missing timestamps.
-    """
-    comment_generator = extraction_functions["comment_generator"]
-    extract_comment_name = extraction_functions["extract_comment_name"]
-    extract_parent_comment_name = extraction_functions["extract_parent_comment_name"]
-    extract_timestamp = extraction_functions["extract_timestamp"]
-    # anonymous_coward_name = extraction_functions["anonymous_coward_name"]
+def form_item_to_user(platform, time_scale):
+    folder = get_package_path() + "/data_folder/anonymized_data/" + platform
+    output_file_path = get_package_path() + "/data_folder/anonymized_data/" + platform + "/item_to_userset_" + time_scale + ".txt"
+    anonymize_user_file_path = get_package_path() + "/data_folder/anonymized_data/" + platform + "/anonymize_user_" + time_scale + ".txt"
 
-    comment_id_to_comment = dict()
+    time_scale_in_seconds = dict()
+    time_scale_in_seconds["post"] = 0.0
+    time_scale_in_seconds["min"] = 60.0
+    time_scale_in_seconds["hour"] = 3600.0
+    time_scale_in_seconds["day"] = 86400.0
+    time_scale_in_seconds["week"] = 604810.0
+    time_scale_in_seconds["inf"] = sys.maxsize
 
-    comment_gen = comment_generator(document)
+    ####################################################################################################################
+    # Extraction functions.
+    ####################################################################################################################
+    extraction_functions = dict()
+    extraction_functions["comment_generator"] = anonymized_extract.comment_generator
+    extraction_functions["extract_comment_name"] = anonymized_extract.extract_comment_name
+    extraction_functions["extract_parent_comment_name"] = anonymized_extract.extract_parent_comment_name
+    extraction_functions["extract_lifetime"] = anonymized_extract.extract_lifetime
+    extraction_functions["extract_user_name"] = anonymized_extract.extract_user_name
+    extraction_functions["calculate_targets"] = anonymized_extract.calculate_targets
+    extraction_functions["anonymous_coward_name"] = "0"
 
-    initial_post = next(comment_gen)
-    yield initial_post
+    ####################################################################################################################
+    # Iterate over all videos.
+    ####################################################################################################################
+    input_file_path = folder + "/anonymized_data"+ ".txt"
 
-    within_discussion_comment_anonymize[extract_comment_name(initial_post)] = 0
-    initial_post_id = within_discussion_comment_anonymize[extract_comment_name(initial_post)]
-    within_discussion_comment_anonymize[None] = None
+    anonymize_user = dict()
 
-    comment_id_to_comment[initial_post_id] = initial_post
+    counter = 0
 
-    comment_list = list(comment_gen)
-    children_dict = collections.defaultdict(list)
-    for comment in comment_list:
-        # Anonymize comment.
-        comment_name = extract_comment_name(comment)
-        comment_id = within_discussion_comment_anonymize.get(comment_name, len(within_discussion_comment_anonymize))
-        within_discussion_comment_anonymize[comment_name] = comment_id
+    fp = open(output_file_path, "w")
 
-        parent_comment_name = extract_parent_comment_name(comment)
-        if parent_comment_name is None:
-            parent_comment_id = None
-        else:
-            parent_comment_id = within_discussion_comment_anonymize.get(parent_comment_name,
-                                                                        len(within_discussion_comment_anonymize))
-        within_discussion_comment_anonymize[parent_comment_name] = parent_comment_id
+    document_gen = anonymized_extract.document_generator(input_file_path)
+    for document in document_gen:
+        if counter % 50 == 0:
+            print(input_file_path, counter)
 
-        comment_id_to_comment[comment_id] = comment
+        user_set = list()
 
-        # Update discussion tree.
-        children_dict[parent_comment_id].append(comment_id)
+        ################################################################################################################
+        # Within discussion anonymization.
+        ################################################################################################################
+        comment_gen = extraction_functions["comment_generator"](document)
+        comment_list = [comment for comment in comment_gen]
 
-    # Starting from the root/initial post, we get the children and we put them in a priority queue.
-    priority_queue = list()
+        initial_post = comment_list[0]
+        initial_timestamp = extraction_functions["extract_lifetime"](initial_post)
 
-    children = set(children_dict[initial_post_id])
-    for child in children:
-        comment = comment_id_to_comment[child]
-        timestamp = extract_timestamp(comment)
-        heapq.heappush(priority_queue, (timestamp, (child, comment)))
+        for comment in comment_list:
+            lifetime = extraction_functions["extract_lifetime"](comment) - initial_timestamp
+            if lifetime > time_scale_in_seconds[time_scale]:
+                continue
 
-    # We iteratively yield the topmost priority comment and add to the priority list the children of that comment.
-    while True:
-        # If priority list empty, we stop.
-        if len(priority_queue) == 0:
-            break
+            user_name = extraction_functions["extract_user_name"](comment)
+            user_id = anonymize_user.get(user_name, len(anonymize_user))
+            anonymize_user[user_name] = user_id
 
-        t = heapq.heappop(priority_queue)
-        comment = t[1][1]
-        yield comment
+            user_set.append(user_id)
 
-        children = set(children_dict[int(t[1][0])])
-        for child in children:
-            comment = comment_id_to_comment[child]
-            timestamp = extract_timestamp(comment)
-            heapq.heappush(priority_queue, (timestamp, (child, comment)))
+        user_set = set(user_set)
+        user_set = [repr(u) for u in user_set]
+        fp.write(repr(counter) + "\t" + "\t".join(sorted(user_set)) + "\n")
+        counter += 1
+
+    fp.close()
+    with open(anonymize_user_file_path, "w") as fp:
+        for k, v in anonymize_user.items():
+            fp.write(k + "\t" + repr(v) + "\n")
 
 
-if __name__ == "__main__":
-    anonymize_reddit_dataset(get_package_path() + "/data_folder/raw_data/reddit",
-                             get_package_path() + "/data_folder/anonymized_data/reddit")
-    anonymize_youtube_dataset(get_package_path() + "/data_folder/raw_data/youtube",
-                              get_package_path() + "/data_folder/anonymized_data/youtube")
+def form_item_to_popularity(platform):
+    folder = get_package_path() + "/data_folder/anonymized_data/" + platform
+    output_file_path = get_package_path() + "/data_folder/anonymized_data/" + platform + "/item_to_popularity" + ".txt"
+
+    ####################################################################################################################
+    # Extraction functions.
+    ####################################################################################################################
+    extraction_functions = dict()
+    extraction_functions["comment_generator"] = anonymized_extract.comment_generator
+    extraction_functions["extract_comment_name"] = anonymized_extract.extract_comment_name
+    extraction_functions["extract_parent_comment_name"] = anonymized_extract.extract_parent_comment_name
+    extraction_functions["extract_lifetime"] = anonymized_extract.extract_lifetime
+    extraction_functions["extract_user_name"] = anonymized_extract.extract_user_name
+    extraction_functions["calculate_targets"] = anonymized_extract.calculate_targets
+    extraction_functions["anonymous_coward_name"] = "0"
+
+    ####################################################################################################################
+    # Iterate over all videos.
+    ####################################################################################################################
+    input_file_path = folder + "/anonymized_data" + ".txt"
+
+    anonymize_user = dict()
+
+    counter = 0
+
+    fp = open(output_file_path, "w")
+
+    document_gen = anonymized_extract.document_generator(input_file_path)
+    for document in document_gen:
+        if counter % 50 == 0:
+            print(input_file_path, counter)
+
+        targets = anonymized_extract.calculate_targets(document)
+
+        fp.write(repr(targets["comments"]) + "\t" +
+                 repr(targets["users"]) + "\t" +
+                 repr(targets["score_wilson"]) + "\t" +
+                 repr(targets["controversiality_wilson"]) + "\n")
+        counter += 1

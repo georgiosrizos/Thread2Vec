@@ -4,7 +4,6 @@ import json
 
 
 def document_generator(file_path):
-    counter = 0
     with open(file_path, "r") as fp:
         while True:
             try:
@@ -14,17 +13,11 @@ def document_generator(file_path):
             except OSError:
                 continue
             clean_row = file_row.strip().split("\t")
-            if len(clean_row) == 2:
-                extended_document = dict()
-                extended_document["id"] = clean_row[0]
-                extended_document["fetch_timestamp"] = clean_row[1]
-            elif len(clean_row) == 0:
+            if len(clean_row) == 0:
                 continue
             try:
                 document = json.loads(file_row.strip())
-                extended_document["document"] = document
-                counter += 1
-                yield extended_document
+                yield document
             except ValueError:
                 continue
 
@@ -61,3 +54,9 @@ def extract_lifetime(comment):
     timestamp = comment["lifetime"]
 
     return timestamp
+
+
+def calculate_targets(document):
+    targets = document["targets"]
+
+    return targets
