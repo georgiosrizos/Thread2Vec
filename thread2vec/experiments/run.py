@@ -17,7 +17,7 @@ def mean_versus_vlad_aggregation(dataset):
 
     train = np.append(train, val)
 
-    data = get_data(dataset)
+    data = get_data(dataset, "week")
 
     y = data["popularity_matrix"]
     y_train = y[train, 1]
@@ -211,7 +211,7 @@ def handcrafted_features_versus_aggregation_comparison(dataset, vlad_clusters):
 
     train = np.append(train, val)
 
-    data = get_data(dataset)
+    data = get_data(dataset, "week")
 
     y = data["popularity_matrix"]
     y_train = y[train, 2]
